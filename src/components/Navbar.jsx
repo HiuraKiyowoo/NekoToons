@@ -67,7 +67,7 @@ const Navbar = () => {
 
       <nav className="fixed top-2 inset-x-4 z-[100] max-w-7xl mx-auto">
         <div className="bg-black/60 h-16 px-6 rounded-2xl flex items-center justify-between border border-white/5 shadow-lg relative overflow-hidden">
-          <span className="text-[#F6CF80] font-black text-xl tracking-tight cursor-pointer z-10" onClick={() => navigate('/home')}>KanataToon</span>
+          <span className="text-[#F6CF80] font-black text-xl tracking-tight cursor-pointer z-10" onClick={() => navigate('/home')}>NekoToons</span>
           <div className="flex items-center gap-3 z-10">
             <div onClick={() => setIsSearchOpen(true)} className="w-9 h-9 bg-white/5 rounded-full flex items-center justify-center text-white cursor-pointer border border-white/10 hover:bg-[#F6CF80] hover:text-black hover:border-[#F6CF80] transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>

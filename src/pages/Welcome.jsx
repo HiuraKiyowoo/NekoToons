@@ -29,7 +29,7 @@ const Welcome = () => {
 
       <div className="relative z-10 flex flex-col items-center text-center px-6 gap-6">
         <div className="flex flex-col items-center gap-2">
-          <span className="text-[#F6CF80] font-black text-5xl md:text-7xl tracking-tighter">DoujinDesu</span>
+          <span className="text-[#F6CF80] font-black text-5xl md:text-7xl tracking-tighter">NekoToons</span>
           <span className="text-white/40 text-sm font-bold uppercase tracking-widest">Manga · Manhwa · Doujinshi</span>
         </div>
         <p className="text-white/60 text-sm font-medium max-w-sm leading-relaxed">
