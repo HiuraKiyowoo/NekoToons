@@ -25,7 +25,7 @@ const Reader = () => {
         document.title = `${data.mangaName || ''} — Ch.${data.chapter} - KanataToon`;
         if (data.mangaSlug) {
           saveHistory(
-            { slug: data.mangaSlug, name: data.mangaName, image: null },
+            { slug: data.mangaSlug, name: data.mangaName, image: data.mangaImage },
             data.chapter
           );
         }

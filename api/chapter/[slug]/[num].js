@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     const idx     = ids.indexOf(cur);
     ok(res, {
       mangaName: props.data?.name ?? '',
+    mangaImage: props.data?.image ?? '',
       mangaSlug: props.slug ?? slug,
       chapter:   cur,
       img:       subItem.img ?? [],
