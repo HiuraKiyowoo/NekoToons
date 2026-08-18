@@ -18,7 +18,11 @@ const MangaCard = ({ a, onClick, badge }) => (
     <div className="relative aspect-[3/4.5] overflow-hidden bg-[#0f1520] rounded-sm shadow-xl">
       <img src={imgUrl(a.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={a.name} />
       {badge && <div className="absolute top-1 left-1 bg-black/70 text-[#4f8ef7] text-[8px] font-black px-1.5 py-0.5 rounded-sm">{badge}</div>}
-      {a.type && <div className="absolute bottom-1 right-1 bg-white/10 text-white/80 text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase">{a.type}</div>}
+      {a.type && (
+        <div className="absolute bottom-1 right-1 bg-black/50 text-[13px] px-1 py-0.5 rounded-sm leading-none">
+          {a.type === 'Manga' ? '🇯🇵' : a.type === 'Manhwa' ? '🇰🇷' : a.type === 'Manhua' ? '🇨🇳' : a.type}
+        </div>
+      )}
     </div>
     <h3 className="text-[9px] font-bold text-white/60 line-clamp-1 group-hover:text-[#4f8ef7] transition-colors">{a.name}</h3>
   </div>
