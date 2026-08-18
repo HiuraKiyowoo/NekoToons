@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import { imgUrl, apiFetch, fmtNum } from '../utils/api';
 
 const Shimmer = () => <div className="absolute top-0 bottom-0 left-0 w-[150%] animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" style={{ transform: 'translate3d(-100%,0,0) skewX(-20deg)' }} />;
+
 const CardSkeleton = () => (
   <div className="min-w-[105px] flex flex-col gap-2">
     <div className="aspect-[3/4.5] bg-[#0f1520] rounded-sm relative overflow-hidden shadow-xl"><Shimmer /></div>
@@ -45,33 +46,34 @@ const SectionHeader = ({ title, sub, onMore, scrollRef }) => (
 
 const Home = () => {
   const navigate = useNavigate();
-  const [carousel, setCarousel]     = useState([]);
-  const [articles, setArticles]     = useState([]);
-  const [popular, setPopular]       = useState([]);
-  const [heroIdx, setHeroIdx]       = useState(0);
+  const [carousel,  setCarousel]  = useState([]);
+  const [articles,  setArticles]  = useState([]);
+  const [newSeries, setNewSeries] = useState([]);
+  const [completed, setCompleted] = useState([]);
+  const [heroIdx,   setHeroIdx]   = useState(0);
   const [transitioning, setTransitioning] = useState(true);
-  const [isLoading, setIsLoading]   = useState(true);
-  const r1 = useRef(null), r2 = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const r1 = useRef(null), r2 = useRef(null), r3 = useRef(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     let alive = true;
-    const load = async () => {
+    (async () => {
       setIsLoading(true);
       try {
-        const homeRes = await apiFetch('/home');
+        const res = await apiFetch('/home');
         if (!alive) return;
-        const { popular: pop = [], articles: art = [], carousel: car = [] } = homeRes.data ?? {};
-        setCarousel(car);
-        setArticles(art);
-        setPopular(pop);
+        const d = res.data ?? {};
+        setCarousel(d.carousel  ?? []);
+        setArticles(d.articles  ?? []);
+        setNewSeries(d.newSeries ?? []);
+        setCompleted(d.completed ?? []);
       } finally { if (alive) setIsLoading(false); }
-    };
-    load();
+    })();
     return () => { alive = false; };
   }, []);
 
-  const heroItems = (carousel.length > 0 ? carousel : popular).slice(0, 8);
+  const heroItems = carousel.slice(0, 10);
   const heroLoop  = heroItems.length > 0 ? [...heroItems, heroItems[0]] : [];
 
   useEffect(() => {
@@ -111,7 +113,7 @@ const Home = () => {
           <div className={`flex h-full ${transitioning ? 'transition-transform duration-700' : ''}`} style={{ transform: `translate3d(-${heroIdx * 100}%,0,0)` }}>
             {heroLoop.map((item, i) => (
               <div key={i} className="min-w-full h-full relative">
-                <img src={imgUrl(item.image)} className="w-full h-full object-cover opacity-60" loading={i > 0 ? 'lazy' : 'eager'} alt="" />
+                <img src={imgUrl(item.background || item.image)} className="w-full h-full object-cover opacity-60" loading={i > 0 ? 'lazy' : 'eager'} alt="" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#080c14] via-[#080c14]/40 to-transparent" />
                 <div className="absolute bottom-6 left-6 md:bottom-12 md:left-12 flex items-end gap-4 z-10 w-[calc(100%-48px)] max-w-7xl pr-8">
                   <img src={imgUrl(item.image)} className="w-24 md:w-40 aspect-[3/4.2] object-cover rounded-md shadow-2xl shrink-0" alt="" />
@@ -119,7 +121,8 @@ const Home = () => {
                     <h2 className="text-lg md:text-3xl font-black text-white tracking-tight leading-tight line-clamp-2">{item.name}</h2>
                     <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">{item.type}</p>
                     {item.slug && (
-                      <button onClick={() => navigate(`/manga/${item.slug}`)} className="mt-2 h-8 px-5 bg-[#4f8ef7] hover:bg-[#3a7ef5] text-white rounded font-black tracking-wider text-[10px] flex items-center gap-1.5 w-fit transition-colors">
+                      <button onClick={() => navigate(`/manga/${item.slug}`)}
+                        className="mt-2 h-8 px-5 bg-[#4f8ef7] hover:bg-[#3a7ef5] text-white rounded font-black tracking-wider text-[10px] flex items-center gap-1.5 w-fit transition-colors shadow-[0_4px_16px_rgba(79,142,247,0.4)]">
                         <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
                         Baca
                       </button>
@@ -140,21 +143,30 @@ const Home = () => {
         )}
       </header>
 
-      {/* Terbaru */}
+      {/* Update */}
       <section className="max-w-7xl mx-auto px-6 mt-12">
-        <SectionHeader title="Terbaru" sub="Komik update terbaru" onMore={() => navigate('/browse')} scrollRef={r1} />
+        <SectionHeader title="Update" sub="Chapter terbaru" onMore={() => navigate('/browse')} scrollRef={r1} />
         <div ref={r1} className="flex overflow-x-auto gap-3 pb-4 cscroll snap-x px-2">
           {isLoading ? [...Array(8)].map((_, i) => <CardSkeleton key={i} />) :
-            articles.map((a, i) => <MangaCard key={a.slug || i} a={a} onClick={() => navigate(`/manga/${a.slug}`)} badge={a.status} />)}
+            articles.map((a, i) => <MangaCard key={a.slug || i} a={a} onClick={() => navigate(`/manga/${a.slug}`)} badge={a.status === 'ongoing' ? 'Ongoing' : a.status} />)}
         </div>
       </section>
 
-      {/* Populer */}
+      {/* New Series */}
       <section className="max-w-7xl mx-auto px-6 mt-10">
-        <SectionHeader title="Populer" sub="Paling banyak dibaca" onMore={() => navigate('/explore')} scrollRef={r2} />
+        <SectionHeader title="New Series" sub="Komik baru ditambahkan" onMore={() => navigate('/explore')} scrollRef={r2} />
         <div ref={r2} className="flex overflow-x-auto gap-3 pb-4 cscroll snap-x px-2">
           {isLoading ? [...Array(8)].map((_, i) => <CardSkeleton key={i} />) :
-            popular.map((a, i) => <MangaCard key={a.slug || i} a={a} onClick={() => navigate(`/manga/${a.slug}`)} badge={a.views ? `👁 ${fmtNum(a.views)}` : null} />)}
+            newSeries.map((a, i) => <MangaCard key={a.slug || i} a={a} onClick={() => navigate(`/manga/${a.slug}`)} badge="New" />)}
+        </div>
+      </section>
+
+      {/* Completed */}
+      <section className="max-w-7xl mx-auto px-6 mt-10">
+        <SectionHeader title="Complete" sub="Sudah tamat" onMore={() => navigate('/browse')} scrollRef={r3} />
+        <div ref={r3} className="flex overflow-x-auto gap-3 pb-4 cscroll snap-x px-2">
+          {isLoading ? [...Array(8)].map((_, i) => <CardSkeleton key={i} />) :
+            completed.map((a, i) => <MangaCard key={a.slug || i} a={a} onClick={() => navigate(`/manga/${a.slug}`)} badge="✓" />)}
         </div>
       </section>
 

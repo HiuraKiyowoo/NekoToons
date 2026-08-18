@@ -125,13 +125,18 @@ function apiErr(res, msg, status = 500) { json(res, { error: msg }, status); }
 // ── API handlers ──────────────────────────────────────────────────────────────
 
 async function apiHome(res) {
-  const [popRes, latestRes] = await Promise.all([
-    voraJSON(`/popular?take=20&page=1`),
-    voraJSON(`/series?take=20&page=1&takeChapter=0&preset=rilisan_terbaru&includeMeta=true`),
+  const [bannerRes, updateRes, newRes, completeRes] = await Promise.all([
+    voraJSON('/series?take=10&page=1&takeChapter=0&preset=banner'),
+    voraJSON('/series?take=20&page=1&takeChapter=0&preset=rilisan_terbaru&includeMeta=true'),
+    voraJSON('/series?take=20&page=1&takeChapter=0&sort=createdAt&sortOrder=desc&includeMeta=true'),
+    voraJSON('/series?take=20&page=1&takeChapter=0&status=completed&includeMeta=true'),
   ]);
-  const popular  = (Array.isArray(popRes?.data)    ? popRes.data    : []).map(normSeries).filter(Boolean);
-  const articles = (Array.isArray(latestRes?.data)  ? latestRes.data : []).map(normSeries).filter(Boolean);
-  json(res, { popular, articles, carousel: popular.slice(0, 10) });
+  json(res, {
+    carousel:  (Array.isArray(bannerRes?.data)   ? bannerRes.data   : []).map(normSeries).filter(Boolean),
+    articles:  (Array.isArray(updateRes?.data)   ? updateRes.data   : []).map(normSeries).filter(Boolean),
+    newSeries: (Array.isArray(newRes?.data)      ? newRes.data      : []).map(normSeries).filter(Boolean),
+    completed: (Array.isArray(completeRes?.data) ? completeRes.data : []).map(normSeries).filter(Boolean),
+  });
 }
 
 async function apiKomik(slug, res) {
