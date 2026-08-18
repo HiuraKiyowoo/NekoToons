@@ -6,13 +6,6 @@ import { imgUrl, apiFetch, saveHistory, getLastChapter, fmtNum } from '../utils/
 
 const Shimmer = () => <div className="absolute top-0 bottom-0 left-0 w-[150%] animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-10" style={{ transform: 'translate3d(-100%,0,0) skewX(-20deg)' }} />;
 
-function normalizeChapters(komik) {
-  if (!komik || typeof komik !== 'object') return [];
-  return Object.entries(komik)
-    .map(([num, data]) => ({ chapterNum: Number(num), ...data }))
-    .sort((a, b) => a.chapterNum - b.chapterNum);
-}
-
 const EyeIcon = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -48,9 +41,10 @@ const MangaDetail = () => {
       .finally(() => setIsLoading(false));
   }, [slug]);
 
+  // Voratoon: manga.chapters sudah berupa array terurut dari server
+  const allChapters = manga?.chapters ?? [];
+  const chapters    = sortDesc ? [...allChapters].reverse() : [...allChapters];
   const genres      = manga ? (Array.isArray(manga.genre) ? manga.genre : []) : [];
-  const allChapters = manga ? normalizeChapters(manga.Komik) : [];
-  const chapters    = sortDesc ? [...allChapters].reverse() : allChapters;
 
   const handleRead = (chapter) => {
     if (!manga) return;
@@ -62,9 +56,9 @@ const MangaDetail = () => {
     <div className="min-h-screen bg-[#080c14] pb-24">
       <style>{`@keyframes shimmer{0%{transform:translate3d(-100%,0,0) skewX(-20deg)}100%{transform:translate3d(200%,0,0) skewX(-20deg)}} body,html{background:#080c14!important;color:white;margin:0;padding:0}`}</style>
       <Navbar />
-      <div className="pt-20 max-w-4xl mx-auto px-4 md:px-6">
-        <div className="flex flex-col md:flex-row gap-6 mb-8 animate-pulse">
-          <div className="w-48 mx-auto md:mx-0 aspect-[3/4] bg-[#0f1520] rounded-sm relative overflow-hidden shrink-0"><Shimmer /></div>
+      <div className="pt-20 max-w-4xl mx-auto px-4 md:px-6 animate-pulse">
+        <div className="flex flex-col md:flex-row gap-6 mb-8">
+          <div className="w-48 mx-auto md:mx-0 aspect-[3/4] bg-[#0f1520] rounded-lg relative overflow-hidden shrink-0"><Shimmer /></div>
           <div className="flex-1 flex flex-col gap-4 pt-2">
             <div className="h-8 w-3/4 bg-[#0f1520] rounded-sm relative overflow-hidden"><Shimmer /></div>
             <div className="h-4 w-1/2 bg-[#0f1520] rounded-sm relative overflow-hidden"><Shimmer /></div>
@@ -77,8 +71,7 @@ const MangaDetail = () => {
 
   if (!manga) return (
     <div className="min-h-screen bg-[#080c14] flex items-center justify-center">
-      <Navbar />
-      <div className="text-white/40 text-sm font-bold">Manga tidak ditemukan.</div>
+      <Navbar /><div className="text-white/40 text-sm font-bold">Tidak ditemukan.</div>
     </div>
   );
 
@@ -87,7 +80,6 @@ const MangaDetail = () => {
       <style>{`@keyframes shimmer{0%{transform:translate3d(-100%,0,0) skewX(-20deg)}100%{transform:translate3d(200%,0,0) skewX(-20deg)}} body,html{background:#080c14!important;color:white;margin:0;padding:0}`}</style>
       <Navbar />
 
-      {/* Blurred background */}
       {manga.image && (
         <div className="fixed inset-0 z-0 pointer-events-none">
           <img src={imgUrl(manga.image)} className="w-full h-full object-cover blur-3xl opacity-10 scale-110" alt="" />
@@ -111,68 +103,40 @@ const MangaDetail = () => {
 
             {/* Badges */}
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-5">
-              {manga.type && (
-                <span className="bg-[#4f8ef7] text-white text-[9px] px-2.5 py-1 rounded-md uppercase font-black tracking-widest">
-                  {manga.type}
-                </span>
-              )}
-              {manga.status && (
-                <span className="bg-white/10 text-white/80 text-[9px] px-2.5 py-1 rounded-md uppercase font-bold border border-white/10">
-                  {manga.status}
-                </span>
-              )}
+              {manga.type && <span className="bg-[#4f8ef7] text-white text-[9px] px-2.5 py-1 rounded-md uppercase font-black tracking-widest">{manga.type}</span>}
+              {manga.status && <span className="bg-white/10 text-white/80 text-[9px] px-2.5 py-1 rounded-md uppercase font-bold border border-white/10">{manga.status}</span>}
               {manga.rate && (
                 <span className="flex items-center gap-1 bg-amber-400/10 text-amber-400 text-[9px] px-2.5 py-1 rounded-md font-bold border border-amber-400/20">
-                  <StarIcon className="w-2.5 h-2.5" />
-                  {parseFloat(manga.rate).toFixed(2)}
+                  <StarIcon className="w-2.5 h-2.5" />{parseFloat(manga.rate).toFixed(1)}
                 </span>
               )}
-              {manga.views && (
+              {manga.views > 0 && (
                 <span className="flex items-center gap-1 bg-white/5 text-white/50 text-[9px] px-2.5 py-1 rounded-md font-bold border border-white/10">
-                  <EyeIcon className="w-2.5 h-2.5" />
-                  {fmtNum(manga.views)}
+                  <EyeIcon className="w-2.5 h-2.5" />{fmtNum(manga.views)}
                 </span>
               )}
-              {manga.rilis && (
-                <span className="bg-white/5 text-white/50 text-[9px] px-2.5 py-1 rounded-md font-bold border border-white/10">
-                  {manga.rilis}
-                </span>
-              )}
+              {manga.rilis && <span className="bg-white/5 text-white/50 text-[9px] px-2.5 py-1 rounded-md font-bold border border-white/10">{manga.rilis}</span>}
+              {manga.totalChapters > 0 && <span className="bg-white/5 text-white/50 text-[9px] px-2.5 py-1 rounded-md font-bold border border-white/10">{manga.totalChapters} ch</span>}
             </div>
 
-            {/* Author / Artist — redesign */}
-            {(manga.author || manga.artist) && (
+            {/* Author / Artist */}
+            {manga.author && (
               <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-5">
-                {manga.author && (
-                  <div className="flex items-center gap-2 bg-[#0f1520] border border-white/8 px-3 py-2 rounded-lg">
-                    <div className="w-6 h-6 rounded-full bg-[#4f8ef7]/20 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-[#4f8ef7]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                      </svg>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="text-white/30 text-[8px] uppercase font-black tracking-wider">Author</span>
-                      <span className="text-white text-[11px] font-bold leading-tight">{manga.author}</span>
-                    </div>
+                <div className="flex items-center gap-2 bg-[#0f1520] border border-white/8 px-3 py-2 rounded-lg">
+                  <div className="w-6 h-6 rounded-full bg-[#4f8ef7]/20 flex items-center justify-center shrink-0">
+                    <svg className="w-3 h-3 text-[#4f8ef7]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                    </svg>
                   </div>
-                )}
-                {manga.artist && manga.artist !== manga.author && (
-                  <div className="flex items-center gap-2 bg-[#0f1520] border border-white/8 px-3 py-2 rounded-lg">
-                    <div className="w-6 h-6 rounded-full bg-[#4f8ef7]/20 flex items-center justify-center shrink-0">
-                      <svg className="w-3 h-3 text-[#4f8ef7]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                      </svg>
-                    </div>
-                    <div className="flex flex-col text-left">
-                      <span className="text-white/30 text-[8px] uppercase font-black tracking-wider">Artist</span>
-                      <span className="text-white text-[11px] font-bold leading-tight">{manga.artist}</span>
-                    </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-white/30 text-[8px] uppercase font-black tracking-wider">Author</span>
+                    <span className="text-white text-[11px] font-bold leading-tight">{manga.author}</span>
                   </div>
-                )}
+                </div>
               </div>
             )}
 
-            {/* Genre tags */}
+            {/* Genre */}
             {genres.length > 0 && (
               <div className="flex flex-wrap gap-1.5 justify-center md:justify-start mb-4">
                 {genres.map((g, i) => (
@@ -184,12 +148,10 @@ const MangaDetail = () => {
               </div>
             )}
 
-            {manga.description && (
-              <p className="text-white/50 text-xs leading-relaxed line-clamp-4 mb-5">{manga.description}</p>
-            )}
+            {manga.description && <p className="text-white/50 text-xs leading-relaxed line-clamp-4 mb-5">{manga.description}</p>}
 
-            {/* Action buttons */}
-            {chapters.length > 0 && (
+            {/* Buttons */}
+            {allChapters.length > 0 && (
               <div className="flex gap-2.5 justify-center md:justify-start flex-wrap">
                 <button onClick={() => handleRead(allChapters[0])}
                   className="px-5 py-2.5 bg-[#4f8ef7] text-white font-black text-xs rounded-lg hover:bg-[#3a7ef5] active:scale-95 transition-all uppercase tracking-widest shadow-[0_4px_20px_rgba(79,142,247,0.35)]">
@@ -213,7 +175,9 @@ const MangaDetail = () => {
         {/* Chapter list */}
         <div className="bg-[#0f1520] rounded-xl border border-white/5 p-4 md:p-6 shadow-xl mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-white font-black uppercase text-sm tracking-wider">Chapters ({chapters.length})</h3>
+            <h3 className="text-white font-black uppercase text-sm tracking-wider">
+              Chapters ({allChapters.length})
+            </h3>
             <button onClick={() => setSortDesc(p => !p)}
               className="text-white/30 hover:text-[#4f8ef7] text-[10px] font-black uppercase tracking-widest transition-colors">
               {sortDesc ? 'Terbaru ↓' : 'Terlama ↑'}
@@ -225,22 +189,16 @@ const MangaDetail = () => {
               return (
                 <div key={ch.chapterNum} onClick={() => handleRead(ch)}
                   className={`flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer transition-all active:scale-[0.99] ${
-                    isLast
-                      ? 'bg-[#4f8ef7]/10 border border-[#4f8ef7]/30'
-                      : 'bg-[#080c14] border border-white/5 hover:border-white/15 hover:bg-white/5'
+                    isLast ? 'bg-[#4f8ef7]/10 border border-[#4f8ef7]/30' : 'bg-[#080c14] border border-white/5 hover:border-white/15 hover:bg-white/5'
                   }`}>
                   <div className="flex items-center gap-3">
-                    <span className={`font-black text-sm ${isLast ? 'text-[#4f8ef7]' : 'text-white/80'}`}>
-                      Ch. {ch.chapterNum}
-                    </span>
+                    <span className={`font-black text-sm ${isLast ? 'text-[#4f8ef7]' : 'text-white/80'}`}>Ch. {ch.chapterNum}</span>
                     {isLast && <span className="text-[#4f8ef7] text-[8px] font-black uppercase bg-[#4f8ef7]/10 px-1.5 py-0.5 rounded">Terakhir</span>}
-                    {ch.img?.length > 0 && <span className="text-white/20 text-[9px] font-bold">{ch.img.length} hal</span>}
                   </div>
                   <div className="flex items-center gap-3">
-                    {ch.viewsChil > 0 && (
+                    {ch.views > 0 && (
                       <span className="flex items-center gap-1 text-white/20 text-[9px] font-bold">
-                        <EyeIcon className="w-3 h-3" />
-                        {fmtNum(ch.viewsChil)}
+                        <EyeIcon className="w-3 h-3" />{fmtNum(ch.views)}
                       </span>
                     )}
                     <svg className="w-4 h-4 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">

@@ -1,97 +1,96 @@
-// api/_lib.js — shared logic untuk semua Vercel API routes
-// File ini tidak di-expose sebagai route (prefix _)
+// api/_lib.js — Voratoon shared logic untuk Vercel API routes
 
 import https from 'https';
 
-const SITE   = 'keikomik.net';
+const VORA   = 'api.voratoon.com';
 const UA     = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36';
-const BASE_H = {
-  'User-Agent':      UA,
-  'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
-  'Referer':         'https://keikomik.net/',
-};
+const BASE_H = { 'User-Agent': UA, 'Accept': 'application/json', 'Referer': 'https://v1.voratoon.com/' };
 
-// In-memory cache — bekerja selama Vercel instance masih warm
-let _bid = null, _bidAt = 0;
-const BID_TTL   = 10 * 60 * 1000;
-const _cache    = new Map();
-const CACHE_TTL =  5 * 60 * 1000;
+// In-memory cache (warm Vercel instances)
+const _cache   = new Map();
+const _chapIdx = new Map();
+const TTL_STD  =  5 * 60 * 1000;
+const TTL_CHAP = 30 * 60 * 1000;
 
-export function httpsGet(hostname, path, extra = {}) {
+export function voraGet(p, extra = {}) {
   return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname, path, method: 'GET',
-      headers: { ...BASE_H, ...extra },
-    }, res => {
+    const req = https.request({ hostname: VORA, path: p, method: 'GET', headers: { ...BASE_H, ...extra } }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks) }));
     });
     req.on('error', reject);
     req.end();
   });
 }
 
-export async function getBuildId(force = false) {
-  const now = Date.now();
-  if (!force && _bid && now - _bidAt < BID_TTL) return _bid;
-  const { body } = await httpsGet(SITE, '/', { Accept: 'text/html' });
-  const m = body.toString().match(/"buildId"\s*:\s*"([^"]+)"/);
-  if (!m) throw new Error('Build ID tidak ditemukan');
-  _bid = m[1]; _bidAt = now;
-  return _bid;
-}
+function _cached(key, ttl) { const e = _cache.get(key); return (e && Date.now() - e.at < ttl) ? e.data : null; }
+function _set(key, data)   { _cache.set(key, { data, at: Date.now() }); }
 
-export async function nextGet(p) {
-  const key    = `next:${p}`;
-  const cached = _cache.get(key);
-  if (cached && Date.now() - cached.at < CACHE_TTL) return cached.data;
-
-  const get = async (bid) =>
-    httpsGet(SITE, `/_next/data/${bid}/${p}.json`, { Accept: 'application/json' });
-
-  let r = await get(await getBuildId());
-  if (r.status === 404) r = await get(await getBuildId(true));
-
-  const data = JSON.parse(r.body.toString());
-  _cache.set(key, { data, at: Date.now() });
+export async function voraJSON(p, ttl = TTL_STD) {
+  const hit = _cached(p, ttl);
+  if (hit) return hit;
+  const { body, status } = await voraGet(p);
+  if (status !== 200) throw Object.assign(new Error(`Voratoon HTTP ${status}`), { status });
+  const data = JSON.parse(body.toString());
+  _set(p, data);
   return data;
 }
 
-export async function siteGet(path, extra = {}) {
-  return httpsGet(SITE, path, { Accept: 'application/json', ...extra });
+export async function getChapterIndices(slug) {
+  const hit = _chapIdx.get(slug);
+  if (hit && Date.now() - hit.at < TTL_CHAP) return hit.indices;
+  const data    = await voraJSON(`/series/${encodeURIComponent(slug)}/chapters?page=1`, TTL_CHAP);
+  const indices = (Array.isArray(data?.data) ? data.data : [])
+    .map(item => Number(item.data?.index ?? 0)).filter(n => n > 0).sort((a, b) => a - b);
+  _chapIdx.set(slug, { indices, at: Date.now() });
+  return indices;
 }
 
-export function norm(item) {
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+export function normSeries(item) {
   if (!item) return null;
+  const d    = item.data ?? {};
+  const meta = item.dataMetadata ?? {};
   return {
-    id:          item.id ?? item._id ?? '',
-    slug:        item.slug ?? '',
-    name:        item.name ?? '',
-    image:       item.image ?? '',
-    type:        item.type ?? '',
-    status:      item.status ?? '',
-    rate:        item.rate ?? null,
-    views:       item.views ?? 0,
-    name2:       item.name2 ?? '',
-    author:      item.author ?? '',
-    artist:      item.artist ?? '',
-    description: item.description ?? '',
-    genre:       Array.isArray(item.genre)  ? item.genre  : [],
-    themes:      Array.isArray(item.themes) ? item.themes : [],
-    demographic: Array.isArray(item.demographic) ? item.demographic : (item.demographic ? [item.demographic] : []),
-    rilis:       item.rilis ?? '',
-    CreateAt:    item.CreateAt ?? null,
-    UpdateAt:    item.UpdateAt ?? null,
+    id:           String(item.id ?? ''),
+    slug:         d.slug ?? '',
+    name:         d.title ?? '',
+    name2:        d.nativeTitle ?? '',
+    image:        d.coverImage ?? '',
+    background:   d.backgroundImage ?? '',
+    type:         cap(d.format ?? ''),
+    status:       d.status ?? '',
+    rate:         d.rating ?? null,
+    views:        Number(meta.analyticsViews ?? d.totalViews ?? 0),
+    author:       d.author ?? '',
+    description:  d.synopsis ?? '',
+    genre:        (d.genres ?? []).map(g => g.data?.name).filter(Boolean),
+    genreIds:     d.genreIds ?? [],
+    rilis:        d.releaseDate ?? '',
+    totalChapters: Number(d.totalChapters ?? 0),
+    isHot:        Boolean(d.isHot),
+    ranking:      meta.ranking ?? null,
+    bookmarkCount: Number(meta.bookmarkCount ?? d.bookmarkCount ?? 0),
   };
 }
 
-export function ok(res, data) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.status(200).json(data);
+export function normChapter(item) {
+  if (!item) return null;
+  const d   = item.data ?? {};
+  const idx = Number(d.index ?? item.chapterIndex ?? 0);
+  return {
+    id:        item.id ?? null,
+    chapterNum: idx,
+    title:     d.title || `Chapter ${idx}`,
+    isDraft:   Boolean(d.isDraft),
+    thumbnail: d.thumbnail ?? null,
+    views:     Number(item.views?.total ?? 0),
+    createdAt: item.createdAt ?? null,
+    updatedAt: item.updatedAt ?? null,
+  };
 }
 
-export function err(res, msg, status = 500) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.status(status).json({ error: msg });
-}
+export function ok(res, data)         { res.setHeader('Access-Control-Allow-Origin', '*'); res.status(200).json(data); }
+export function err(res, msg, s = 500){ res.setHeader('Access-Control-Allow-Origin', '*'); res.status(s).json({ error: msg }); }
